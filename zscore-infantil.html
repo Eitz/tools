@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Z-Score Peso/Idade Infantil – OMS</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg-boy: #dbeafe;
+        --bg-girl: #fce7f3;
+        --accent-boy: #1d4ed8;
+        --accent-girl: #be185d;
+        --card-bg: #ffffff;
+        --radius: 12px;
+        --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        min-height: 100vh;
+        transition: background 0.4s ease;
+        padding: 24px 16px 48px;
+      }
+
+      body.boy {
+        background: var(--bg-boy);
+        --accent: var(--accent-boy);
+      }
+      body.girl {
+        background: var(--bg-girl);
+        --accent: var(--accent-girl);
+      }
+
+      /* ── Header ── */
+      .header {
+        max-width: 860px;
+        margin: 0 auto 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1.3;
+      }
+
+      .header h1 span {
+        font-size: 0.85rem;
+        font-weight: 400;
+        color: #555;
+        display: block;
+      }
+
+      /* ── Toggle button ── */
+      .toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 30px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background 0.3s,
+          transform 0.1s;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .toggle-btn:hover {
+        filter: brightness(1.1);
+      }
+      .toggle-btn:active {
+        transform: scale(0.97);
+      }
+      .toggle-btn .icon {
+        font-size: 1.3rem;
+      }
+
+      /* ── Card ── */
+      .card {
+        max-width: 860px;
+        margin: 0 auto 24px;
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 24px;
+      }
+
+      /* ── Input row ── */
+      .inputs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+        margin-bottom: 20px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        min-width: 160px;
+      }
+
+      .field label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #444;
+      }
+
+      .field input {
+        padding: 10px 14px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s;
+        outline: none;
+      }
+      .field input:focus {
+        border-color: var(--accent);
+      }
+
+      .calc-btn {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 28px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          filter 0.2s,
+          transform 0.1s;
+        white-space: nowrap;
+        align-self: flex-end;
+      }
+      .calc-btn:hover {
+        filter: brightness(1.12);
+      }
+      .calc-btn:active {
+        transform: scale(0.97);
+      }
+
+      /* ── Validation error ── */
+      .errmsg {
+        font-size: 0.85rem;
+        color: #b45309;
+        background: #fffbeb;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        display: none;
+      }
+      .errmsg.show {
+        display: block;
+      }
+
+      /* ── Classification active row ── */
+      .classif-row.active {
+        font-weight: 800;
+      }
+      .classif-indicator {
+        margin-left: auto;
+        font-size: 0.82rem;
+        font-weight: 700;
+        display: none;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        opacity: 0.85;
+      }
+      .classif-row.active .classif-indicator {
+        display: flex;
+      }
+
+      /* ── Chart ── */
+      .chart-wrap {
+        position: relative;
+        height: 420px;
+      }
+
+      /* ── Classification guide ── */
+      .classif-guide {
+        margin-top: 20px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+      }
+      .classif-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        font-size: 0.88rem;
+        font-weight: 500;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .classif-row:last-child {
+        border-bottom: none;
+      }
+      .classif-badge {
+        font-weight: 700;
+        min-width: 160px;
+        font-size: 0.82rem;
+        font-family: monospace;
+      }
+      .classif-laranja {
+        color: #c2410c;
+        background: #fff7ed;
+      }
+      .classif-verde {
+        color: #15803d;
+        background: #f0fdf4;
+      }
+      .classif-vermelho {
+        color: #dc2626;
+        background: #fef2f2;
+      }
+      .classif-vermelho-escuro {
+        color: #991b1b;
+        background: #fee2e2;
+      }
+
+      /* ── Footer ── */
+      .footer {
+        max-width: 860px;
+        margin: 0 auto;
+        text-align: center;
+        font-size: 0.78rem;
+        color: #888;
+      }
+
+      @media (max-width: 500px) {
+        .header h1 {
+          font-size: 1.2rem;
+        }
+        .chart-wrap {
+          height: 300px;
+        }
+      }
+    </style>
+  </head>
+  <body class="boy">
+    <!-- Header -->
+    <div class="header">
+      <h1>
+        Z-Score Peso/Idade
+        <span>0 – 24 meses</span>
+      </h1>
+      <button class="toggle-btn" id="toggleBtn" onclick="toggleSex()">
+        <span class="icon" id="toggleIcon">♂</span>
+        <span id="toggleLabel">Menino</span>
+      </button>
+    </div>
+
+    <!-- Input card -->
+    <div class="card">
+      <div class="inputs">
+        <div class="field">
+          <label for="ageInput">Idade (meses) — 0 a 24</label>
+          <input
+            type="number"
+            id="ageInput"
+            min="0"
+            max="24"
+            step="1"
+            placeholder="Ex: 12"
+          />
+        </div>
+        <div class="field">
+          <label for="weightInput">Peso (kg)</label>
+          <input
+            type="number"
+            id="weightInput"
+            min="1"
+            max="40"
+            step="0.1"
+            placeholder="Ex: 9.5"
+          />
+        </div>
+        <button class="calc-btn" onclick="calculate()">Calcular</button>
+      </div>
+
+      <!-- Validation error -->
+      <div class="errmsg" id="errmsg"></div>
+
+      <!-- Chart -->
+      <div class="chart-wrap">
+        <canvas id="growthChart"></canvas>
+      </div>
+
+      <!-- Classification guide -->
+      <div class="classif-guide">
+        <div class="classif-row classif-laranja" data-zone="elevado">
+          <span class="classif-badge">&gt; +2 DP</span>
+          Peso elevado para idade
+          <span class="classif-indicator">◄ aqui</span>
+        </div>
+        <div class="classif-row classif-verde" data-zone="adequado">
+          <span class="classif-badge">Entre &ge; &minus;2 DP e &le; +2 DP</span>
+          Peso adequado para idade
+          <span class="classif-indicator">◄ aqui</span>
+        </div>
+        <div class="classif-row classif-vermelho" data-zone="baixo">
+          <span class="classif-badge">&ge; &minus;3 DP e &lt; &minus;2 DP</span>
+          Baixo peso para idade
+          <span class="classif-indicator">◄ aqui</span>
+        </div>
+        <div class="classif-row classif-vermelho-escuro" data-zone="muitobaixo">
+          <span class="classif-badge">&lt; &minus;3 DP</span>
+          Muito baixo peso para idade
+          <span class="classif-indicator">◄ aqui</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p></p>
+    </div>
+
+    <script>
+      /* ═══════════════════════════════════════════════════════════
+     WHO LMS Tables – Weight-for-Age 0–60 months
+     Source: WHO Child Growth Standards (2006)
+     Format: [L, M, S] per month (index = month)
+  ═══════════════════════════════════════════════════════════ */
+
+      const LMS_BOYS = [
+        /* 0 */ [0.3487, 3.3464, 0.14602],
+        /* 1 */ [0.2297, 4.4709, 0.13395],
+        /* 2 */ [0.197, 5.5675, 0.12385],
+        /* 3 */ [0.1738, 6.3762, 0.11727],
+        /* 4 */ [0.1553, 7.0023, 0.11316],
+        /* 5 */ [0.141, 7.5105, 0.11048],
+        /* 6 */ [0.1295, 7.934, 0.10852],
+        /* 7 */ [0.1205, 8.297, 0.10717],
+        /* 8 */ [0.1125, 8.6151, 0.10602],
+        /* 9 */ [0.1066, 8.9014, 0.10533],
+        /*10 */ [0.1014, 9.1574, 0.10474],
+        /*11 */ [0.0975, 9.3955, 0.1042],
+        /*12 */ [0.0942, 9.6179, 0.10369],
+        /*13 */ [0.0914, 9.827, 0.10329],
+        /*14 */ [0.0889, 10.0257, 0.10297],
+        /*15 */ [0.0872, 10.216, 0.10268],
+        /*16 */ [0.0855, 10.399, 0.10245],
+        /*17 */ [0.0842, 10.5756, 0.10228],
+        /*18 */ [0.083, 10.7468, 0.10213],
+        /*19 */ [0.0819, 10.9132, 0.10202],
+        /*20 */ [0.0811, 11.0756, 0.10192],
+        /*21 */ [0.0803, 11.2346, 0.10183],
+        /*22 */ [0.0796, 11.3908, 0.10177],
+        /*23 */ [0.079, 11.5447, 0.10172],
+        /*24 */ [0.0783, 11.6965, 0.10168],
+        /*25 */ [0.0778, 11.8466, 0.10167],
+        /*26 */ [0.0773, 11.9953, 0.10168],
+        /*27 */ [0.0769, 12.143, 0.1017],
+        /*28 */ [0.0765, 12.2899, 0.10175],
+        /*29 */ [0.0762, 12.4362, 0.10181],
+        /*30 */ [0.076, 12.5822, 0.10188],
+        /*31 */ [0.0758, 12.7281, 0.10196],
+        /*32 */ [0.0756, 12.8743, 0.10206],
+        /*33 */ [0.0756, 13.0211, 0.10217],
+        /*34 */ [0.0756, 13.1686, 0.10229],
+        /*35 */ [0.0757, 13.3174, 0.10243],
+        /*36 */ [0.0759, 13.4679, 0.10258],
+        /*37 */ [0.0761, 13.6202, 0.10273],
+        /*38 */ [0.0764, 13.7747, 0.10289],
+        /*39 */ [0.0767, 13.9318, 0.10306],
+        /*40 */ [0.0771, 14.0916, 0.10323],
+        /*41 */ [0.0775, 14.2545, 0.1034],
+        /*42 */ [0.078, 14.4208, 0.10357],
+        /*43 */ [0.0785, 14.5908, 0.10375],
+        /*44 */ [0.079, 14.7647, 0.10392],
+        /*45 */ [0.0795, 14.9427, 0.10409],
+        /*46 */ [0.0801, 15.1248, 0.10427],
+        /*47 */ [0.0807, 15.3111, 0.10444],
+        /*48 */ [0.0813, 15.5018, 0.10462],
+        /*49 */ [0.082, 15.6968, 0.1048],
+        /*50 */ [0.0826, 15.8963, 0.10497],
+        /*51 */ [0.0833, 16.1002, 0.10515],
+        /*52 */ [0.084, 16.3087, 0.10533],
+        /*53 */ [0.0847, 16.5217, 0.10551],
+        /*54 */ [0.0854, 16.7393, 0.10569],
+        /*55 */ [0.0861, 16.9615, 0.10588],
+        /*56 */ [0.0869, 17.1883, 0.10607],
+        /*57 */ [0.0876, 17.4197, 0.10627],
+        /*58 */ [0.0883, 17.6556, 0.10647],
+        /*59 */ [0.0891, 17.8961, 0.10668],
+        /*60 */ [0.0899, 18.1411, 0.10689],
+      ];
+
+      const LMS_GIRLS = [
+        /* 0 */ [0.3809, 3.2322, 0.14171],
+        /* 1 */ [0.2581, 4.1873, 0.13724],
+        /* 2 */ [0.2176, 5.1282, 0.13],
+        /* 3 */ [0.1915, 5.8458, 0.12619],
+        /* 4 */ [0.173, 6.4237, 0.12376],
+        /* 5 */ [0.1585, 6.8985, 0.12168],
+        /* 6 */ [0.1467, 7.297, 0.11994],
+        /* 7 */ [0.137, 7.6422, 0.11847],
+        /* 8 */ [0.129, 7.9487, 0.1172],
+        /* 9 */ [0.1222, 8.2254, 0.11612],
+        /*10 */ [0.1164, 8.48, 0.1152],
+        /*11 */ [0.1113, 8.7192, 0.1144],
+        /*12 */ [0.1069, 8.9481, 0.11368],
+        /*13 */ [0.1028, 9.1699, 0.11304],
+        /*14 */ [0.0991, 9.3871, 0.11248],
+        /*15 */ [0.0958, 9.6008, 0.11198],
+        /*16 */ [0.0928, 9.8124, 0.11154],
+        /*17 */ [0.09, 10.0226, 0.11115],
+        /*18 */ [0.0874, 10.232, 0.11081],
+        /*19 */ [0.085, 10.4415, 0.11051],
+        /*20 */ [0.0828, 10.6513, 0.11024],
+        /*21 */ [0.0808, 10.8619, 0.11],
+        /*22 */ [0.0789, 11.0737, 0.1098],
+        /*23 */ [0.0773, 11.287, 0.10963],
+        /*24 */ [0.0758, 11.5022, 0.10947],
+        /*25 */ [0.0744, 11.7197, 0.10934],
+        /*26 */ [0.0731, 11.9397, 0.10924],
+        /*27 */ [0.072, 12.1622, 0.10918],
+        /*28 */ [0.0709, 12.3876, 0.10914],
+        /*29 */ [0.07, 12.616, 0.10913],
+        /*30 */ [0.0692, 12.8474, 0.10915],
+        /*31 */ [0.0685, 13.082, 0.10921],
+        /*32 */ [0.0679, 13.3199, 0.10929],
+        /*33 */ [0.0674, 13.5611, 0.10941],
+        /*34 */ [0.067, 13.8057, 0.10957],
+        /*35 */ [0.0667, 14.0539, 0.10975],
+        /*36 */ [0.0665, 14.3055, 0.10997],
+        /*37 */ [0.0664, 14.5608, 0.1102],
+        /*38 */ [0.0663, 14.8197, 0.11046],
+        /*39 */ [0.0664, 15.0821, 0.11075],
+        /*40 */ [0.0665, 15.3483, 0.11105],
+        /*41 */ [0.0667, 15.6179, 0.11137],
+        /*42 */ [0.067, 15.8912, 0.11172],
+        /*43 */ [0.0673, 16.1682, 0.11208],
+        /*44 */ [0.0677, 16.4488, 0.11247],
+        /*45 */ [0.0682, 16.7329, 0.11287],
+        /*46 */ [0.0687, 17.0204, 0.1133],
+        /*47 */ [0.0692, 17.3113, 0.11373],
+        /*48 */ [0.0698, 17.6053, 0.11419],
+        /*49 */ [0.0704, 17.9026, 0.11465],
+        /*50 */ [0.071, 18.2028, 0.11513],
+        /*51 */ [0.0716, 18.5058, 0.11561],
+        /*52 */ [0.0723, 18.8115, 0.11611],
+        /*53 */ [0.0729, 19.1198, 0.11661],
+        /*54 */ [0.0736, 19.4303, 0.11712],
+        /*55 */ [0.0742, 19.7429, 0.11764],
+        /*56 */ [0.0749, 20.0572, 0.11816],
+        /*57 */ [0.0755, 20.3731, 0.11868],
+        /*58 */ [0.0762, 20.6903, 0.1192],
+        /*59 */ [0.0768, 21.0086, 0.11972],
+        /*60 */ [0.0775, 21.3276, 0.12024],
+      ];
+
+      /* ═══════════════════════════════════════════════════════════
+     LMS FORMULAS
+  ═══════════════════════════════════════════════════════════ */
+
+      /** Calculate z-score from weight X, given LMS params */
+      function calcZscore(X, L, M, S) {
+        if (Math.abs(L) < 1e-6) return Math.log(X / M) / S;
+        return (Math.pow(X / M, L) - 1) / (L * S);
+      }
+
+      /** Calculate weight for a given z-score Z, given LMS params (inverse) */
+      function weightAtZ(Z, L, M, S) {
+        if (Math.abs(L) < 1e-6) return M * Math.exp(S * Z);
+        return M * Math.pow(1 + L * S * Z, 1 / L);
+      }
+
+      /** Standard normal CDF – Hart approximation */
+      function normCDF(z) {
+        const a1 = 0.254829592,
+          a2 = -0.284496736,
+          a3 = 1.421413741;
+        const a4 = -1.453152027,
+          a5 = 1.061405429,
+          p = 0.3275911;
+        const sign = z < 0 ? -1 : 1;
+        const x = Math.abs(z) / Math.sqrt(2);
+        const t = 1 / (1 + p * x);
+        const poly = ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t;
+        return 0.5 * (1 + sign * (1 - poly * Math.exp(-x * x)));
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+     STATE
+  ═══════════════════════════════════════════════════════════ */
+
+      let isBoy = true;
+      let myChart = null;
+      let lastCalc = null; // stores last computed result for tooltip
+      const MONTHS = Array.from({ length: 25 }, (_, i) => i); // 0–24
+
+      /* ═══════════════════════════════════════════════════════════
+     CHART CONFIG
+  ═══════════════════════════════════════════════════════════ */
+
+      // Zone bands: each fills to the previous dataset, creating colored areas between boundaries
+      const ZONE_META = [
+        {
+          z: -3,
+          bg: "rgba(185,28,28,0.22)",
+          border: "#dc2626",
+          dash: [5, 3],
+          fill: "start",
+        },
+        {
+          z: -2,
+          bg: "rgba(239,68,68,0.18)",
+          border: "#f97316",
+          dash: [5, 3],
+          fill: "-1",
+        },
+        {
+          z: +2,
+          bg: "rgba(34,197,94,0.18)",
+          border: "#f97316",
+          dash: [5, 3],
+          fill: "-1",
+        },
+        {
+          flatY: 30,
+          bg: "rgba(249,115,22,0.18)",
+          border: "transparent",
+          dash: [],
+          fill: "-1",
+        },
+      ];
+
+      function buildCurveData(lmsTable, z) {
+        return MONTHS.map((m) => {
+          const [L, M, S] = lmsTable[m];
+          return { x: m, y: parseFloat(weightAtZ(z, L, M, S).toFixed(3)) };
+        });
+      }
+
+      function buildCurveDatasets(lmsTable) {
+        const datasets = ZONE_META.map((meta) => ({
+          label: meta.flatY != null ? "zone_top" : `zone_${meta.z}`,
+          data:
+            meta.flatY != null
+              ? MONTHS.map((m) => ({ x: m, y: meta.flatY }))
+              : buildCurveData(lmsTable, meta.z),
+          borderColor: meta.border,
+          backgroundColor: meta.bg,
+          borderWidth: meta.border === "transparent" ? 0 : 1.5,
+          borderDash: meta.dash,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.35,
+          fill: meta.fill,
+        }));
+        // Mediana – thin reference line drawn on top of all zones, no fill
+        datasets.push({
+          label: "Mediana",
+          data: buildCurveData(lmsTable, 0),
+          borderColor: isBoy ? "#16a34a" : "#15803d",
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          borderDash: [],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.35,
+          fill: false,
+        });
+        return datasets;
+      }
+
+      function initChart() {
+        const ctx = document.getElementById("growthChart").getContext("2d");
+        const lms = isBoy ? LMS_BOYS : LMS_GIRLS;
+
+        const datasets = buildCurveDatasets(lms);
+        // Child point dataset – use regular line with showLine:false (avoids mixed-type bugs in Chart.js 4)
+        datasets.push({
+          label: "Criança",
+          data: [],
+          borderColor: isBoy ? "#1d4ed8" : "#be185d",
+          backgroundColor: isBoy ? "#1d4ed8" : "#be185d",
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointStyle: "circle",
+          showLine: false,
+        });
+
+        myChart = new Chart(ctx, {
+          type: "line",
+          data: { datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "nearest", intersect: true },
+            scales: {
+              x: {
+                type: "linear",
+                min: 0,
+                max: 24,
+                title: {
+                  display: true,
+                  text: "Idade (meses)",
+                  font: { size: 13, weight: "600" },
+                  color: "#444",
+                },
+                ticks: {
+                  stepSize: 3,
+                  callback: (v) => (v % 3 === 0 ? v : ""),
+                },
+                grid: { color: "#e2e8f0" },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: "Peso (kg)",
+                  font: { size: 13, weight: "600" },
+                  color: "#444",
+                },
+                grid: {
+                  color: (ctx) =>
+                    Number.isInteger(ctx.tick.value) ? "#cbd5e1" : "#eef0f3",
+                },
+                ticks: {
+                  stepSize: 0.5,
+                  callback: (v) => (Number.isInteger(v) ? v + " kg" : ""),
+                },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                filter: (item) => item.dataset.label === "Criança",
+                callbacks: {
+                  title: () => "",
+                  label: (ctx) => {
+                    if (ctx.dataset.label !== "Criança" || !lastCalc)
+                      return null;
+                    return [
+                      `${lastCalc.sex}  ·  ${lastCalc.age} meses  ·  ${lastCalc.weight} kg`,
+                      `Z-score: ${lastCalc.z}  ·  Percentil: ${lastCalc.pct}%`,
+                      lastCalc.label,
+                    ];
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function refreshChart() {
+        if (!myChart) return;
+        const lms = isBoy ? LMS_BOYS : LMS_GIRLS;
+        const newDatasets = buildCurveDatasets(lms);
+        newDatasets.push({
+          label: "Criança",
+          data: [], // cleared on toggle; user must recalculate for new sex
+          borderColor: isBoy ? "#1d4ed8" : "#be185d",
+          backgroundColor: isBoy ? "#1d4ed8" : "#be185d",
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointStyle: "circle",
+          showLine: false,
+        });
+        myChart.data.datasets = newDatasets;
+        myChart.update();
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+     TOGGLE BOY / GIRL
+  ═══════════════════════════════════════════════════════════ */
+
+      function toggleSex() {
+        isBoy = !isBoy;
+        document.body.className = isBoy ? "boy" : "girl";
+        document.getElementById("toggleIcon").textContent = isBoy ? "♂" : "♀";
+        document.getElementById("toggleLabel").textContent = isBoy
+          ? "Menino"
+          : "Menina";
+        document.getElementById("errmsg").className = "errmsg";
+        clearZoneHighlight();
+        refreshChart();
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+     CALCULATE
+  ═══════════════════════════════════════════════════════════ */
+
+      function classify(z) {
+        if (z > 2) return { zone: "elevado", label: "Peso elevado para idade" };
+        if (z >= -2)
+          return { zone: "adequado", label: "Peso adequado para idade" };
+        if (z >= -3) return { zone: "baixo", label: "Baixo peso para idade" };
+        return { zone: "muitobaixo", label: "Muito baixo peso para idade" };
+      }
+
+      function highlightZone(zone) {
+        document
+          .querySelectorAll(".classif-row")
+          .forEach((r) => r.classList.remove("active"));
+        const row = document.querySelector(`.classif-row[data-zone="${zone}"]`);
+        if (row) {
+          row.classList.add("active");
+          row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+
+      function clearZoneHighlight() {
+        document
+          .querySelectorAll(".classif-row")
+          .forEach((r) => r.classList.remove("active"));
+        lastCalc = null;
+      }
+
+      function calculate() {
+        const ageRaw = document.getElementById("ageInput").value.trim();
+        const weightRaw = document.getElementById("weightInput").value.trim();
+        const errEl = document.getElementById("errmsg");
+
+        const showErr = (msg) => {
+          errEl.textContent = "⚠️ " + msg;
+          errEl.className = "errmsg show";
+        };
+        errEl.className = "errmsg"; // clear
+
+        if (ageRaw === "" || weightRaw === "") {
+          showErr("Preencha a idade e o peso.");
+          return;
+        }
+
+        const age = parseInt(ageRaw, 10);
+        const weight = parseFloat(weightRaw);
+
+        if (isNaN(age) || age < 0 || age > 24) {
+          showErr("Idade deve ser entre 0 e 24 meses.");
+          return;
+        }
+        if (isNaN(weight) || weight <= 0 || weight > 60) {
+          showErr("Peso inválido (use valores entre 1 e 60 kg).");
+          return;
+        }
+
+        const lms = isBoy ? LMS_BOYS : LMS_GIRLS;
+        const [L, M, S] = lms[age];
+        const z = calcZscore(weight, L, M, S);
+        const pct = (normCDF(z) * 100).toFixed(1);
+        const { zone, label } = classify(z);
+        const sex = isBoy ? "Menino" : "Menina";
+
+        lastCalc = {
+          sex,
+          age,
+          weight: weight.toFixed(2),
+          z: z.toFixed(2),
+          pct,
+          label,
+        };
+        highlightZone(zone);
+
+        // Update child point on chart
+        const childIdx = myChart.data.datasets.length - 1;
+        myChart.data.datasets[childIdx].data = [{ x: age, y: weight }];
+        myChart.data.datasets[childIdx].borderColor = isBoy
+          ? "#1d4ed8"
+          : "#be185d";
+        myChart.data.datasets[childIdx].backgroundColor = isBoy
+          ? "#1d4ed8"
+          : "#be185d";
+        myChart.update();
+      }
+
+      /* Allow pressing Enter to calculate */
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") calculate();
+      });
+
+      /* ═══════════════════════════════════════════════════════════
+     INIT
+  ═══════════════════════════════════════════════════════════ */
+      window.addEventListener("DOMContentLoaded", initChart);
+    </script>
+  </body>
+</html>
